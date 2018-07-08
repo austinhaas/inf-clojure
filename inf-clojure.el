@@ -6,7 +6,7 @@
 ;;       Olin Shivers <shivers@cs.cmu.edu>
 ;; URL: http://github.com/clojure-emacs/inf-clojure
 ;; Keywords: processes, clojure
-;; Version: 2.1.0
+;; Version: 2.1.1
 ;; Package-Requires: ((emacs "24.4") (clojure-mode "5.6"))
 
 ;; This file is part of GNU Emacs.
@@ -78,7 +78,7 @@
   :link '(url-link :tag "GitHub" "https://github.com/clojure-emacs/inf-clojure")
   :link '(emacs-commentary-link :tag "Commentary" "inf-clojure"))
 
-(defconst inf-clojure-version "2.1.0"
+(defconst inf-clojure-version "2.1.1"
   "The current version of `inf-clojure'.")
 
 (defcustom inf-clojure-prompt-read-only t
@@ -284,7 +284,7 @@ often connecting to a remote REPL process."
   "Form to invoke in order to verify that we launched a CLJS REPL."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defvar-local inf-clojure-repl-type nil
   "Symbol to define your REPL type.
@@ -331,7 +331,7 @@ comments."
                  (if (not (string-match-p ";" s))
                      (replace-regexp-in-string "\s+" " " s)
                    (concat s "\n")))
-               lines " ")))
+               lines "\n")))
 
 (defun inf-clojure--sanitize-command (command)
   "Sanitize COMMAND for sending it to a process.
@@ -392,7 +392,7 @@ should result in a Clojure form that will be sent to the inferior
 Clojure to load that file."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-load-form (proc)
   "Return the form to query the Inf-Clojure PROC for var's documentation.
@@ -839,7 +839,7 @@ The prefix argument ARG can change the behavior of the command:
   "CLJS form to query inferior Clojure for a var's documentation."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-var-doc-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's documentation.
@@ -878,7 +878,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to query inferior Clojure for a var's source."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-var-source-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's source.
@@ -931,7 +931,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to query inferior Clojure for a function's arglists."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.1.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-arglists-form (proc)
   "Return the form to query the Inf-Clojure PROC for arglists of a var.
@@ -976,7 +976,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to query inferior Clojure for completion candidates."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-completion-form (proc)
   "Return the form to query the Inf-Clojure PROC for completions.
@@ -1015,7 +1015,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to show the public vars in a namespace."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-ns-vars-form (proc)
   "Return the form to query the Inf-Clojure PROC for public vars in a namespace.
@@ -1056,7 +1056,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to set the namespace of the inferior Clojure process."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-set-ns-form (proc)
   "Return the form to set the namespace of the Inf-Clojure PROC.
@@ -1099,7 +1099,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to invoke apropos."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-apropos-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's apropos.
@@ -1140,7 +1140,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to invoke macroexpand."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-macroexpand-form (proc)
   "Return the form for macroexpansion in the Inf-Clojure PROC.
@@ -1181,7 +1181,7 @@ If you are using REPL types, it will pickup the most approapriate
   "CLJS form to invoke macroexpand-1."
   :type 'string
   :safe #'stringp
-  :package-version '(inf-clojure . "2.0.0"))
+  :package-version '(inf-clojure . "2.1.1"))
 
 (defun inf-clojure-macroexpand-1-form (proc)
   "Return the form for macroexpand-1 in the Inf-Clojure PROC.

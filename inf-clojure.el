@@ -276,6 +276,16 @@ often connecting to a remote REPL process."
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+;;;; CLJS
+;;;; ====
+
+(defcustom inf-clojure--cljs-repl-form
+  "(find-ns 'cljs.repl)"
+  "Form to invoke in order to verify that we launched a CLJS REPL."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defvar-local inf-clojure-repl-type nil
   "Symbol to define your REPL type.
 Its root binding is nil and it can be further customized using
@@ -292,6 +302,7 @@ See http://blog.jorgenschaefer.de/2014/05/race-conditions-in-emacs-process-filte
       (cond
        ((inf-clojure--some-response-p proc inf-clojure--lumo-repl-form) 'lumo)
        ((inf-clojure--some-response-p proc inf-clojure--planck-repl-form) 'planck)
+       ((inf-clojure--some-response-p proc inf-clojure--cljs-repl-form) 'cljs)
        (t 'clojure)))))
 
 (defun inf-clojure--set-repl-type (proc)
@@ -374,6 +385,15 @@ Clojure to load that file."
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-load-form-cljs "(clojure.core/load-file \"%s\")"
+  "CLJS format-string for building a Clojure expression to load a file.
+This format string should use `%s' to substitute a file name and
+should result in a Clojure form that will be sent to the inferior
+Clojure to load that file."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-load-form (proc)
   "Return the form to query the Inf-Clojure PROC for var's documentation.
 If you are using REPL types, it will pickup the most appropriate
@@ -381,6 +401,7 @@ If you are using REPL types, it will pickup the most appropriate
   (pcase (inf-clojure--set-repl-type proc)
     (`lumo inf-clojure-load-form-lumo)
     (`planck inf-clojure-load-form-planck)
+    (`cljs inf-clojure-load-form-cljs)
     (_ inf-clojure-load-form)))
 
 (defcustom inf-clojure-reload-form "(require '%s :reload)"
@@ -813,6 +834,13 @@ The prefix argument ARG can change the behavior of the command:
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-var-doc-form-cljs
+  "(cljs.repl/doc %s)"
+  "CLJS form to query inferior Clojure for a var's documentation."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-var-doc-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's documentation.
 If you are using REPL types, it will pickup the most approapriate
@@ -821,6 +849,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-var-doc-form-lumo)
      (`planck inf-clojure-var-doc-form-planck)
+     (`cljs inf-clojure-var-doc-form-cljs)
      (_ inf-clojure-var-doc-form))))
 
 (defcustom inf-clojure-var-source-form
@@ -844,6 +873,13 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-var-source-form-cljs
+  "(cljs.repl/source %s)"
+  "CLJS form to query inferior Clojure for a var's source."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-var-source-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's source.
 If you are using REPL types, it will pickup the most approapriate
@@ -852,6 +888,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-var-source-form-lumo)
      (`planck inf-clojure-var-source-form-planck)
+     (`cljs inf-clojure-var-source-form-cljs)
      (_ inf-clojure-var-source-form))))
 
 (define-obsolete-variable-alias 'inf-clojure-var-source-command 'inf-clojure-var-source-form "2.0.0")
@@ -887,6 +924,15 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.1.0"))
 
+(defcustom inf-clojure-arglists-form-cljs
+  "(:arglists
+      (clojure.core/meta
+       (clojure.core/resolve '%s)))"
+  "CLJS form to query inferior Clojure for a function's arglists."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.1.0"))
+
 (defun inf-clojure-arglists-form (proc)
   "Return the form to query the Inf-Clojure PROC for arglists of a var.
 If you are using REPL types, it will pickup the most approapriate
@@ -895,6 +941,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-arglists-form-lumo)
      (`planck inf-clojure-arglists-form-planck)
+     (`cljs inf-clojure-arglists-form-cljs)
      (_ inf-clojure-arglists-form))))
 
 (defcustom inf-clojure-completion-form
@@ -923,6 +970,14 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+;; TODO: This can't be right.
+(defcustom inf-clojure-completion-form-cljs
+  "(complete.core/completions \"%s\")"
+  "CLJS form to query inferior Clojure for completion candidates."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-completion-form (proc)
   "Return the form to query the Inf-Clojure PROC for completions.
 If you are using REPL types, it will pickup the most approapriate
@@ -931,6 +986,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-completion-form-lumo)
      (`planck inf-clojure-completion-form-planck)
+     (`cljs inf-clojure-completion-form-cljs)
      (_ inf-clojure-completion-form))))
 
 (defcustom inf-clojure-ns-vars-form
@@ -954,6 +1010,13 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-ns-vars-form-cljs
+  "(cljs.repl/dir %s)"
+  "CLJS form to show the public vars in a namespace."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-ns-vars-form (proc)
   "Return the form to query the Inf-Clojure PROC for public vars in a namespace.
 If you are using REPL types, it will pickup the most approapriate
@@ -962,6 +1025,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-ns-vars-form-lumo)
      (`planck inf-clojure-ns-vars-form-planck)
+     (`cljs inf-clojure-ns-vars-form-cljs)
      (_ inf-clojure-ns-vars-form))))
 
 (define-obsolete-variable-alias 'inf-clojure-ns-vars-command 'inf-clojure-ns-vars-form "2.0.0")
@@ -987,6 +1051,13 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-set-ns-form-cljs
+  "(clojure.core/in-ns '%s)"
+  "CLJS form to set the namespace of the inferior Clojure process."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-set-ns-form (proc)
   "Return the form to set the namespace of the Inf-Clojure PROC.
 If you are using REPL types, it will pickup the most approapriate
@@ -994,6 +1065,7 @@ If you are using REPL types, it will pickup the most approapriate
   (pcase (inf-clojure--set-repl-type proc)
     (`planck inf-clojure-set-ns-form-planck)
     (`lumo inf-clojure-set-ns-form-lumo)
+    (`cljs inf-clojure-set-ns-form-cljs)
     (_ inf-clojure-set-ns-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-set-ns-command 'inf-clojure-set-ns-form "2.0.0")
@@ -1021,6 +1093,14 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
+(defcustom inf-clojure-apropos-form-cljs
+  "(doseq [var (sort (cljs.repl/apropos \"%s\"))]
+     (println (str var)))"
+  "CLJS form to invoke apropos."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-apropos-form (proc)
   "Return the form to query the Inf-Clojure PROC for a var's apropos.
 If you are using REPL types, it will pickup the most approapriate
@@ -1029,6 +1109,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-apropos-form-lumo)
      (`planck inf-clojure-apropos-form-planck)
+     (`cljs inf-clojure-apropos-form-cljs)
      (_ inf-clojure-apropos-form))))
 
 (define-obsolete-variable-alias 'inf-clojure-apropos-command 'inf-clojure-apropos-form "2.0.0")
@@ -1054,6 +1135,13 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.2.0"))
 
+(defcustom inf-clojure-macroexpand-form-cljs
+  "(clojure.core/macroexpand '%s)"
+  "CLJS form to invoke macroexpand."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-macroexpand-form (proc)
   "Return the form for macroexpansion in the Inf-Clojure PROC.
 If you are using REPL types, it will pickup the most approapriate
@@ -1062,6 +1150,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-macroexpand-form-lumo)
      (`planck inf-clojure-macroexpand-form-planck)
+     (`cljs inf-clojure-macroexpand-form-cljs)
      (_ inf-clojure-macroexpand-form))))
 
 (define-obsolete-variable-alias 'inf-clojure-macroexpand-command 'inf-clojure-macroexpand-form "2.0.0")
@@ -1087,6 +1176,13 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.2.0"))
 
+(defcustom inf-clojure-macroexpand-1-form-cljs
+  "(clojure.core/macroexpand-1 '%s)"
+  "CLJS form to invoke macroexpand-1."
+  :type 'string
+  :safe #'stringp
+  :package-version '(inf-clojure . "2.0.0"))
+
 (defun inf-clojure-macroexpand-1-form (proc)
   "Return the form for macroexpand-1 in the Inf-Clojure PROC.
 If you are using REPL types, it will pickup the most approapriate
@@ -1095,6 +1191,7 @@ If you are using REPL types, it will pickup the most approapriate
    (pcase (inf-clojure--set-repl-type proc)
      (`lumo inf-clojure-macroexpand-1-form-lumo)
      (`planck inf-clojure-macroexpand-1-form-planck)
+     (`cljs inf-clojure-macroexpand-1-form-cljs)
      (_ inf-clojure-macroexpand-1-form))))
 
 (define-obsolete-variable-alias 'inf-clojure-macroexpand-1-command 'inf-clojure-macroexpand-1-form "2.0.0")

@@ -970,7 +970,7 @@ If you are using REPL types, it will pickup the most approapriate
   :safe #'stringp
   :package-version '(inf-clojure . "2.0.0"))
 
-;; TODO: This can't be right.
+;; TODO: Update this to use cljs-tooling for completion.
 (defcustom inf-clojure-completion-form-cljs
   "(complete.core/completions \"%s\")"
   "CLJS form to query inferior Clojure for completion candidates."

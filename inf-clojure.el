@@ -1379,10 +1379,13 @@ for evaluation, therefore FORM should not include it."
     (when response (funcall match-p response))))
 
 (defun inf-clojure--some-response-p (proc form)
-  "Return true iff PROC's response after evaluating FORM is not nil."
+  "Return true iff PROC's response after evaluating FORM is not
+nil or an empty string."
   (inf-clojure--process-response-match-p
    (lambda (string)
-     (not (inf-clojure--nil-string-match-p (string-trim string))))
+     (let ((s (string-trim string)))
+       (and (not (inf-clojure--nil-string-match-p s))
+            (not (string= s "")))))
    proc form))
 
 ;;;; Commands

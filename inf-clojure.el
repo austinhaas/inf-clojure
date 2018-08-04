@@ -317,31 +317,12 @@ It requires a REPL PROC for inspecting the correct type."
         (setq-local inf-clojure-repl-type repl-type))
     inf-clojure-repl-type))
 
-(defun inf-clojure--whole-comment-line-p (string)
-  "Return true iff STRING is a whole line semicolon comment."
-  (string-match-p "^\s*;" string))
-
-(defun inf-clojure--make-single-line (string)
-  "Convert a multi-line STRING in a single-line STRING.
-It also reduces redundant whitespace for readability and removes
-comments."
-  (let* ((lines (seq-filter (lambda (s) (not (inf-clojure--whole-comment-line-p s)))
-                            (split-string string "[\r\n]" t))))
-    (mapconcat (lambda (s)
-                 (if (not (string-match-p ";" s))
-                     (replace-regexp-in-string "\s+" " " s)
-                   (concat s "\n")))
-               lines "\n")))
-
-(defun inf-clojure--sanitize-command (command)
-  "Sanitize COMMAND for sending it to a process.
-An example of things that this function does is to add a final
-newline at the end of the form.  Return an empty string if the
-sanitized command is empty."
-  (let ((sanitized (inf-clojure--make-single-line command)))
-    (if (string-blank-p sanitized)
-        ""
-      (concat sanitized "\n"))))
+(defun inf-clojure--send-region (proc start end)
+  "Send the current region to the inf-clojure process."
+  (inf-clojure--set-repl-type proc)
+  (inf-clojure--log-string (concat (buffer-substring-no-properties start end) "\n") "----CMD->")
+  (comint-send-region proc start end)
+  (comint-send-string proc "\n"))
 
 (defun inf-clojure--send-string (proc string)
   "A custom `comint-input-sender` / `comint-send-string`.
@@ -352,9 +333,8 @@ always be preferred over `comint-send-string`.  It delegates to
 the string for evaluation.  Refer to `comint-simple-send` for
 customizations."
   (inf-clojure--set-repl-type proc)
-  (let ((sanitized (inf-clojure--sanitize-command string)))
-    (inf-clojure--log-string sanitized "----CMD->")
-    (comint-send-string proc sanitized)))
+  (inf-clojure--log-string (concat string "\n") "----CMD->")
+  (comint-send-string proc (concat string "\n")))
 
 (defcustom inf-clojure-load-form "(clojure.core/load-file \"%s\")"
   "Format-string for building a Clojure expression to load a file.
@@ -585,11 +565,16 @@ to continue it."
 
 (defun inf-clojure-preoutput-filter (str)
   "Preprocess the output STR from interactive commands."
+  ;; TODO: This code needs to be parameterized by REPL.
   (inf-clojure--log-string str "<-RES----")
   (cond
    ((string-prefix-p "inf-clojure-" (symbol-name (or this-command last-command)))
-    ;; Remove subprompts and prepend a newline to the output string
-    (inf-clojure-chomp (concat "\n" (inf-clojure-remove-subprompts str))))
+    (let ((str (inf-clojure-chomp
+                ;; Add a newline after every prompt.
+                (replace-regexp-in-string "\\([^=> \n]+=> *\\)" "\\1\n"
+                                          (concat "\n" (inf-clojure-remove-subprompts str))))))
+      (inf-clojure--log-string str "<-out----")
+      str))
    (t str)))
 
 (defvar inf-clojure-project-root-files
@@ -670,10 +655,7 @@ HOST is the host the process is running on, PORT is where it's listening."
   "Send the current region to the inferior Clojure process.
 Prefix argument AND-GO means switch to the Clojure buffer afterwards."
   (interactive "r\nP")
-  ;; drops newlines at the end of the region
-  (let ((str (replace-regexp-in-string
-              "[\n]+\\'" ""
-              (buffer-substring-no-properties start end))))
+  (let ((str (buffer-substring-no-properties start end)))
     (inf-clojure--send-string (inf-clojure-proc) str))
   (when and-go (inf-clojure-switch-to-repl t)))
 
@@ -689,7 +671,9 @@ Prefix argument AND-GO means switch to the Clojure buffer afterwards."
     (end-of-defun)
     (let ((end (point)) (case-fold-search t))
       (beginning-of-defun)
-      (inf-clojure-eval-region (point) end and-go))))
+      (let ((str (inf-clojure-chomp (buffer-substring-no-properties (point) end))))
+        (inf-clojure--send-string (inf-clojure-proc) str))
+      (when and-go (inf-clojure-switch-to-repl t)))))
 
 (defun inf-clojure-eval-buffer (&optional and-go)
   "Send the current buffer to the inferior Clojure process.
@@ -845,12 +829,11 @@ The prefix argument ARG can change the behavior of the command:
   "Return the form to query the Inf-Clojure PROC for a var's documentation.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-var-doc-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-var-doc-form-lumo)
-     (`planck inf-clojure-var-doc-form-planck)
-     (`cljs inf-clojure-var-doc-form-cljs)
-     (_ inf-clojure-var-doc-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-var-doc-form-lumo)
+    (`planck inf-clojure-var-doc-form-planck)
+    (`cljs inf-clojure-var-doc-form-cljs)
+    (_ inf-clojure-var-doc-form)))
 
 (defcustom inf-clojure-var-source-form
   "(clojure.repl/source %s)"
@@ -884,12 +867,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form to query the Inf-Clojure PROC for a var's source.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-var-source-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-var-source-form-lumo)
-     (`planck inf-clojure-var-source-form-planck)
-     (`cljs inf-clojure-var-source-form-cljs)
-     (_ inf-clojure-var-source-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-var-source-form-lumo)
+    (`planck inf-clojure-var-source-form-planck)
+    (`cljs inf-clojure-var-source-form-cljs)
+    (_ inf-clojure-var-source-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-var-source-command 'inf-clojure-var-source-form "2.0.0")
 
@@ -937,12 +919,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form to query the Inf-Clojure PROC for arglists of a var.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-arglists-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-arglists-form-lumo)
-     (`planck inf-clojure-arglists-form-planck)
-     (`cljs inf-clojure-arglists-form-cljs)
-     (_ inf-clojure-arglists-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-arglists-form-lumo)
+    (`planck inf-clojure-arglists-form-planck)
+    (`cljs inf-clojure-arglists-form-cljs)
+    (_ inf-clojure-arglists-form)))
 
 (defcustom inf-clojure-completion-form
   "(complete.core/completions \"%s\")"
@@ -982,12 +963,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form to query the Inf-Clojure PROC for completions.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-completion-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-completion-form-lumo)
-     (`planck inf-clojure-completion-form-planck)
-     (`cljs inf-clojure-completion-form-cljs)
-     (_ inf-clojure-completion-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-completion-form-lumo)
+    (`planck inf-clojure-completion-form-planck)
+    (`cljs inf-clojure-completion-form-cljs)
+    (_ inf-clojure-completion-form)))
 
 (defcustom inf-clojure-ns-vars-form
   "(clojure.repl/dir %s)"
@@ -1021,12 +1001,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form to query the Inf-Clojure PROC for public vars in a namespace.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-ns-vars-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-ns-vars-form-lumo)
-     (`planck inf-clojure-ns-vars-form-planck)
-     (`cljs inf-clojure-ns-vars-form-cljs)
-     (_ inf-clojure-ns-vars-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-ns-vars-form-lumo)
+    (`planck inf-clojure-ns-vars-form-planck)
+    (`cljs inf-clojure-ns-vars-form-cljs)
+    (_ inf-clojure-ns-vars-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-ns-vars-command 'inf-clojure-ns-vars-form "2.0.0")
 
@@ -1105,12 +1084,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form to query the Inf-Clojure PROC for a var's apropos.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-apropos-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-apropos-form-lumo)
-     (`planck inf-clojure-apropos-form-planck)
-     (`cljs inf-clojure-apropos-form-cljs)
-     (_ inf-clojure-apropos-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-apropos-form-lumo)
+    (`planck inf-clojure-apropos-form-planck)
+    (`cljs inf-clojure-apropos-form-cljs)
+    (_ inf-clojure-apropos-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-apropos-command 'inf-clojure-apropos-form "2.0.0")
 
@@ -1146,12 +1124,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form for macroexpansion in the Inf-Clojure PROC.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-macroexpand-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-macroexpand-form-lumo)
-     (`planck inf-clojure-macroexpand-form-planck)
-     (`cljs inf-clojure-macroexpand-form-cljs)
-     (_ inf-clojure-macroexpand-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-macroexpand-form-lumo)
+    (`planck inf-clojure-macroexpand-form-planck)
+    (`cljs inf-clojure-macroexpand-form-cljs)
+    (_ inf-clojure-macroexpand-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-macroexpand-command 'inf-clojure-macroexpand-form "2.0.0")
 
@@ -1187,12 +1164,11 @@ If you are using REPL types, it will pickup the most approapriate
   "Return the form for macroexpand-1 in the Inf-Clojure PROC.
 If you are using REPL types, it will pickup the most approapriate
 `inf-clojure-macroexpand-1-form` variant."
-  (inf-clojure--sanitize-command
-   (pcase (inf-clojure--set-repl-type proc)
-     (`lumo inf-clojure-macroexpand-1-form-lumo)
-     (`planck inf-clojure-macroexpand-1-form-planck)
-     (`cljs inf-clojure-macroexpand-1-form-cljs)
-     (_ inf-clojure-macroexpand-1-form))))
+  (pcase (inf-clojure--set-repl-type proc)
+    (`lumo inf-clojure-macroexpand-1-form-lumo)
+    (`planck inf-clojure-macroexpand-1-form-planck)
+    (`cljs inf-clojure-macroexpand-1-form-cljs)
+    (_ inf-clojure-macroexpand-1-form)))
 
 (define-obsolete-variable-alias 'inf-clojure-macroexpand-1-command 'inf-clojure-macroexpand-1-form "2.0.0")
 
@@ -1319,13 +1295,12 @@ If BEG-REGEXP is nil, the result string will start from (point)
 in the results buffer.  If END-REGEXP is nil, the result string
 will end at (point-max) in the results buffer.  It cuts out the
 output from and including the `inf-clojure-prompt`."
-  (let ((redirect-buffer-name inf-clojure--redirect-buffer-name)
-        (sanitized-command (inf-clojure--sanitize-command command)))
-    (when (not (string-empty-p sanitized-command))
-      (inf-clojure--log-string command "----CMD->")
+  (let ((redirect-buffer-name inf-clojure--redirect-buffer-name))
+    (when (not (string-empty-p command))
+      (inf-clojure--log-string command "----process-response CMD-->")
       (with-current-buffer (inf-clojure--get-redirect-buffer)
         (erase-buffer)
-        (comint-redirect-send-command-to-process sanitized-command redirect-buffer-name process nil t))
+        (comint-redirect-send-command-to-process command redirect-buffer-name process nil t))
       ;; Wait for the process to complete
       (with-current-buffer (process-buffer process)
         (while (and (null comint-redirect-completed)
@@ -1340,7 +1315,7 @@ output from and including the `inf-clojure-prompt`."
                (end-pos (car (cdr boundaries)))
                (prompt-pos (car (cdr (cdr boundaries))))
                (response-string (substring buffer-string beg-pos (min end-pos prompt-pos))))
-          (inf-clojure--log-string buffer-string "<-RES----")
+          (inf-clojure--log-string buffer-string "<-process-response RES----")
           response-string)))))
 
 (defun inf-clojure--nil-string-match-p (string)

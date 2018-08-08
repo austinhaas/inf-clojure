@@ -553,12 +553,6 @@ to continue it."
   "Return t if STR does not match `inf-clojure-filter-regexp'."
   (not (string-match inf-clojure-filter-regexp str)))
 
-(defun inf-clojure-chomp (string)
-  "Remove final newline from STRING."
-  (if (string-match "[\n]\\'" string)
-      (replace-match "" t t string)
-    string))
-
 (defun inf-clojure-remove-subprompts (string)
   "Remove subprompts from STRING."
   (replace-regexp-in-string inf-clojure-subprompt "" string))
@@ -681,7 +675,8 @@ Prefix argument AND-GO means switch to the Clojure buffer afterwards."
     (end-of-defun)
     (let ((end (point)) (case-fold-search t))
       (beginning-of-defun)
-      (let ((str (inf-clojure-chomp (buffer-substring-no-properties (point) end))))
+      (let ((str (replace-regexp-in-string "\n\\'" ""
+                                           (buffer-substring-no-properties (point) end))))
         (inf-clojure--send-string (inf-clojure-proc) str))
       (when and-go (inf-clojure-switch-to-repl t)))))
 

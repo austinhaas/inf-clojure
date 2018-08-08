@@ -334,6 +334,13 @@ the string for evaluation.  Refer to `comint-simple-send` for
 customizations."
   (inf-clojure--set-repl-type proc)
   (inf-clojure--log-string (concat string "\n") "----CMD->")
+  ;; An attempt to fix the issue where Emacs hangs if the input is too
+  ;; long. It didn't work.
+  ;; (mapc (lambda (s)
+  ;;         (inf-clojure--log-string s "----o->")
+  ;;         (comint-send-string proc s))
+  ;;       (seq-partition string 100))
+  ;; (comint-send-string proc "\n")
   (comint-send-string proc (concat string "\n")))
 
 (defcustom inf-clojure-load-form "(clojure.core/load-file \"%s\")"
@@ -557,7 +564,27 @@ to continue it."
   "Remove subprompts from STRING."
   (replace-regexp-in-string inf-clojure-subprompt "" string))
 
-(defvar inf-clojure-receiving-output? nil)
+(defvar inf-clojure-output-buffer "")
+
+(defun inf-clojure-send-to-repl-buffer (str)
+  ;; I tried to insert text directly into the repl buffer, but for
+  ;; some reason it always follows the output from comint.
+
+  ;; (progn
+  ;;   (set-buffer inf-clojure-buffer)
+  ;;   (goto-char (point-max))
+  ;;   (insert str))
+
+  ;; Here's an example that doesn't use inf-clojure.
+  ;; (progn
+  ;;   (set-buffer "*shell*")
+  ;;   (goto-char (point-max))
+  ;;   (insert "1")
+  ;;   (comint-send-string (get-buffer-process "*shell*") "echo 2\n"))
+
+  ;; Since that doesn't work, store the string and then append it in
+  ;; inf-clojure-preoutput-filter.
+  (setq inf-clojure-output-buffer str))
 
 (defun inf-clojure-preoutput-filter (str)
   "Preprocess the output STR from interactive commands."
@@ -565,20 +592,18 @@ to continue it."
   (inf-clojure--log-string str "<-RES----")
   (cond
    ((string-prefix-p "inf-clojure-" (symbol-name (or this-command last-command)))
-    (let ((prompt-regexp "\\([^=> \n]+=> *\\)"))
-      (let* ((first? (null inf-clojure-receiving-output?))
-             (last? (string-match (concat prompt-regexp "\\'") str))
-             ;; Add a newline after every prompt.
-             (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
-             ;; Remove newline after last prompt.
-             (str (replace-regexp-in-string (concat prompt-regexp "\n\\'") "\\1" str))
-             (str (cond
-                   ((and first? last?) (setq inf-clojure-receiving-output? nil) (concat "\n" str))
-                   (first?             (setq inf-clojure-receiving-output? t)   (concat "\n" str))
-                   (last?              (setq inf-clojure-receiving-output? nil) str)
-                   (t                  (setq inf-clojure-receiving-output? t)   str))))
-        (inf-clojure--log-string str "<-out----")
-        str)))
+    (let* ((prompt-regexp "\\([^=> \n]+=> *\\)")
+           (last-prompt-regexp (concat prompt-regexp "\n\\'"))
+           ;; Add a newline after every prompt.
+           (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
+           ;; Remove newline after last prompt.
+           (str (replace-regexp-in-string last-prompt-regexp "\\1" str))
+           ;; Prepend output buffer.
+           (str (concat inf-clojure-output-buffer str)))
+      ;; Reset output buffer.
+      (setq inf-clojure-output-buffer "")
+      (inf-clojure--log-string str "<-out----")
+      str))
    (t str)))
 
 (defvar inf-clojure-project-root-files
@@ -660,11 +685,13 @@ HOST is the host the process is running on, PORT is where it's listening."
 Prefix argument AND-GO means switch to the Clojure buffer afterwards."
   (interactive "r\nP")
   (let ((str (buffer-substring-no-properties start end)))
+    (inf-clojure-send-to-repl-buffer "\n")
     (inf-clojure--send-string (inf-clojure-proc) str))
   (when and-go (inf-clojure-switch-to-repl t)))
 
 (defun inf-clojure-eval-string (code)
   "Send the string CODE to the inferior Clojure process to be executed."
+  (inf-clojure-send-to-repl-buffer "\n")
   (inf-clojure--send-string (inf-clojure-proc) code))
 
 (defun inf-clojure-eval-defun (&optional and-go)
@@ -677,6 +704,7 @@ Prefix argument AND-GO means switch to the Clojure buffer afterwards."
       (beginning-of-defun)
       (let ((str (replace-regexp-in-string "\n\\'" ""
                                            (buffer-substring-no-properties (point) end))))
+        (inf-clojure-send-to-repl-buffer "\n")
         (inf-clojure--send-string (inf-clojure-proc) str))
       (when and-go (inf-clojure-switch-to-repl t)))))
 

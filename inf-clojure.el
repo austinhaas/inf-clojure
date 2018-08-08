@@ -563,18 +563,28 @@ to continue it."
   "Remove subprompts from STRING."
   (replace-regexp-in-string inf-clojure-subprompt "" string))
 
+(defvar inf-clojure-receiving-output? nil)
+
 (defun inf-clojure-preoutput-filter (str)
   "Preprocess the output STR from interactive commands."
   ;; TODO: This code needs to be parameterized by REPL.
   (inf-clojure--log-string str "<-RES----")
   (cond
    ((string-prefix-p "inf-clojure-" (symbol-name (or this-command last-command)))
-    (let ((str (inf-clojure-chomp
-                ;; Add a newline after every prompt.
-                (replace-regexp-in-string "\\([^=> \n]+=> *\\)" "\\1\n"
-                                          (concat "\n" (inf-clojure-remove-subprompts str))))))
-      (inf-clojure--log-string str "<-out----")
-      str))
+    (let ((prompt-regexp "\\([^=> \n]+=> *\\)"))
+      (let* ((first? (null inf-clojure-receiving-output?))
+             (last? (string-match (concat prompt-regexp "\\'") str))
+             ;; Add a newline after every prompt.
+             (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
+             ;; Remove newline after last prompt.
+             (str (replace-regexp-in-string (concat prompt-regexp "\n\\'") "\\1" str))
+             (str (cond
+                   ((and first? last?) (setq inf-clojure-receiving-output? nil) (concat "\n" str))
+                   (first?             (setq inf-clojure-receiving-output? t)   (concat "\n" str))
+                   (last?              (setq inf-clojure-receiving-output? nil) str)
+                   (t                  (setq inf-clojure-receiving-output? t)   str))))
+        (inf-clojure--log-string str "<-out----")
+        str)))
    (t str)))
 
 (defvar inf-clojure-project-root-files

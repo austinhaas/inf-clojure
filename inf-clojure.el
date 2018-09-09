@@ -598,6 +598,13 @@ to continue it."
            (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
            ;; Remove newline after last prompt.
            (str (replace-regexp-in-string last-prompt-regexp "\\1" str))
+           ;; Remove all but the last prompt.
+
+           ;; One way to do this, and the above, is to change the last
+           ;; prompt to something unique, like >=, operate on all the
+           ;; other prompts, then change it back.
+
+           ;;(str (replace-regexp-in-string prompt-regexp "" str))
            ;; Prepend output buffer.
            (str (concat inf-clojure-output-buffer str)))
       ;; Reset output buffer.

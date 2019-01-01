@@ -590,28 +590,33 @@ to continue it."
   "Preprocess the output STR from interactive commands."
   ;; TODO: This code needs to be parameterized by REPL.
   (inf-clojure--log-string str "<-RES----")
-  (cond
-   ((string-prefix-p "inf-clojure-" (symbol-name (or this-command last-command)))
-    (let* ((prompt-regexp "\\([^=> \n]+=> *\\)")
-           (last-prompt-regexp (concat prompt-regexp "\n\\'"))
-           ;; Add a newline after every prompt.
-           (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
-           ;; Remove newline after last prompt.
-           (str (replace-regexp-in-string last-prompt-regexp "\\1" str))
-           ;; Remove all but the last prompt.
+  (let* ((prompt-regexp "\\([^=> \n]+=> *\\)")
+         (last-prompt-regexp (concat prompt-regexp "\n\\'")))
+    ;; Output to minibuffer. Remove prompts and trailing newline.
+    (let* ((str2 (replace-regexp-in-string prompt-regexp "" str))
+           (str2 (replace-regexp-in-string "\n\\'" "" str2)))
+      (unless (string-blank-p str2)
+        (message "%s" str2)))
+    (cond
+     ((string-prefix-p "inf-clojure-" (symbol-name (or this-command last-command)))
+      (let* (;; Add a newline after every prompt.
+             (str (replace-regexp-in-string prompt-regexp "\\1\n" str))
+             ;; Remove newline after last prompt.
+             (str (replace-regexp-in-string last-prompt-regexp "\\1" str))
+             ;; Remove all but the last prompt.
 
-           ;; One way to do this, and the above, is to change the last
-           ;; prompt to something unique, like >=, operate on all the
-           ;; other prompts, then change it back.
+             ;; One way to do this, and the above, is to change the last
+             ;; prompt to something unique, like >=, operate on all the
+             ;; other prompts, then change it back.
 
-           ;;(str (replace-regexp-in-string prompt-regexp "" str))
-           ;; Prepend output buffer.
-           (str (concat inf-clojure-output-buffer str)))
-      ;; Reset output buffer.
-      (setq inf-clojure-output-buffer "")
-      (inf-clojure--log-string str "<-out----")
-      str))
-   (t str)))
+             ;;(str (replace-regexp-in-string prompt-regexp "" str))
+             ;; Prepend output buffer.
+             (str (concat inf-clojure-output-buffer str)))
+        ;; Reset output buffer.
+        (setq inf-clojure-output-buffer "")
+        (inf-clojure--log-string str "<-out----")
+        str))
+     (t str))))
 
 (defvar inf-clojure-project-root-files
   '("project.clj" "build.boot" "deps.edn")
